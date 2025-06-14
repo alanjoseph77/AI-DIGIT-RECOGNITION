@@ -3,11 +3,34 @@ import tensorflow as tf
 import numpy as np
 import cv2
 import os
+import requests
+from time import sleep
 
 app = Flask(__name__)
-model = tf.keras.models.load_model('digit_model.h5')
 UPLOAD_FOLDER = 'static/uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+def load_model():
+    model_path = 'digit_model.h5'
+    if not os.path.exists(model_path):
+        url = 'https://drive.google.com/uc?export=download&id=1_OJId1A-UxYT4laacotfHA9g5U5KWMXa'
+        session = requests.Session()
+        response = session.get(url, stream=True)
+        token = None
+        for key, value in response.cookies.items():
+            if 'download_warning' in value:
+                token = value
+                break
+        if token:
+            params = {'confirm': token}
+            response = session.get(url, params=params, stream=True)
+        with open(model_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=32768):
+                if chunk:
+                    f.write(chunk)
+    return tf.keras.models.load_model(model_path)
+
+model = load_model()
 
 def predict_digit(image_path):
     img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
@@ -23,9 +46,6 @@ def predict_digit(image_path):
 @app.route('/')
 def home():
     return render_template('digitreco.html')
-
-
-
 
 @app.route('/predict', methods=['POST'])
 def predict():
