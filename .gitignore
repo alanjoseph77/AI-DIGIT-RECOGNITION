@@ -1,4 +1,19 @@
+# Virtual environment
 venv/
-*.h5
+
+# Uploaded files
+static/uploads/*
+
+# Python cache files
 __pycache__/
-static/uploads/
+*.pyc
+
+# IDE and editor files
+.idea/
+*.code-workspace
+
+# macOS files
+.DS_Store
+
+# Windows files
+Thumbs.db
