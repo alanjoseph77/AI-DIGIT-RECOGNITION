@@ -6,12 +6,11 @@ import os
 
 app = Flask(__name__)
 UPLOAD_FOLDER = 'static/uploads'
-if not os.path.exists(UPLOAD_FOLDER):  # Create uploads folder at app startup
+if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
     print(f"Created {UPLOAD_FOLDER}")
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Load model with error handling
 try:
     model = tf.keras.models.load_model('digit_model.h5')
     print("Model loaded successfully")
@@ -54,7 +53,6 @@ def predict():
     file = request.files['file']
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
-    # Validate file type
     allowed_extensions = {'png', 'jpg', 'jpeg'}
     if '.' in file.filename and file.filename.rsplit('.', 1)[1].lower() not in allowed_extensions:
         return jsonify({'error': 'Invalid file type. Use .png, .jpg, or .jpeg'}), 400
