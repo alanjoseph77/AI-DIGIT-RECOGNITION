@@ -3,17 +3,44 @@ import tensorflow as tf
 import numpy as np
 import cv2
 import os
-import gdown
+import requests
 
 app = Flask(__name__)
 UPLOAD_FOLDER = 'static/uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+def download_file_from_google_drive(file_id, destination):
+    URL = "https://docs.google.com/uc?export=download"
+
+    session = requests.Session()
+    response = session.get(URL, params={'id': file_id}, stream=True)
+
+    # Get confirm token if required
+    def get_confirm_token(response):
+        for key, value in response.cookies.items():
+            if key.startswith('download_warning'):
+                return value
+        return None
+
+    token = get_confirm_token(response)
+
+    if token:
+        params = {'id': file_id, 'confirm': token}
+        response = session.get(URL, params=params, stream=True)
+
+    # Save to file
+    with open(destination, "wb") as f:
+        for chunk in response.iter_content(32768):
+            if chunk:
+                f.write(chunk)
+
 def load_model():
     model_path = 'digit_model.h5'
     if not os.path.exists(model_path):
+        print("Downloading model from Google Drive...")
         file_id = '1_OJId1A-UxYT4laacotfHA9g5U5KWMXa'
-        gdown.download(id=file_id, output=model_path, quiet=False)
+        download_file_from_google_drive(file_id, model_path)
+        print("Model downloaded.")
     return tf.keras.models.load_model(model_path)
 
 model = load_model()
