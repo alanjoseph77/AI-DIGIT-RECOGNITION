@@ -1,8 +1,6 @@
 # Virtual environment
 venv/
 
-# Uploaded files
-static/uploads/*
 
 # Python cache files
 __pycache__/
