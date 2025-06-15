@@ -4,44 +4,56 @@ import numpy as np
 import cv2
 import os
 import requests
+from time import sleep
 
 app = Flask(__name__)
 UPLOAD_FOLDER = 'static/uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-def download_file_from_google_drive(file_id, destination):
-    URL = "https://docs.google.com/uc?export=download"
-
+def download_model(url, destination, max_retries=3):
     session = requests.Session()
-    response = session.get(URL, params={'id': file_id}, stream=True)
-
-    # Get confirm token if required
-    def get_confirm_token(response):
-        for key, value in response.cookies.items():
-            if key.startswith('download_warning'):
-                return value
-        return None
-
-    token = get_confirm_token(response)
-
-    if token:
-        params = {'id': file_id, 'confirm': token}
-        response = session.get(URL, params=params, stream=True)
-
-    # Save to file
-    with open(destination, "wb") as f:
-        for chunk in response.iter_content(32768):
-            if chunk:
-                f.write(chunk)
+    for attempt in range(max_retries):
+        try:
+            response = session.get(url, stream=True, timeout=30)
+            token = None
+            for key, value in response.cookies.items():
+                if 'download_warning' in value:
+                    token = value
+                    break
+            if token:
+                params = {'confirm': token}
+                response = session.get(url, params=params, stream=True, timeout=30)
+            total_size = int(response.headers.get('content-length', -1))
+            downloaded_size = 0
+            with open(destination, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=32768):
+                    if chunk:
+                        f.write(chunk)
+                        downloaded_size += len(chunk)
+                        print(f"Downloaded {downloaded_size}/{total_size if total_size > 0 else 'unknown'} bytes")
+            if total_size > 0 and downloaded_size != total_size:
+                raise ValueError(f"Download incomplete: expected {total_size} bytes, got {downloaded_size} bytes")
+            print(f"Model downloaded, size: {os.path.getsize(destination)} bytes")
+            return
+        except Exception as e:
+            print(f"Download attempt {attempt + 1} failed: {e}")
+            if attempt < max_retries - 1:
+                sleep(2 ** attempt)  # Exponential backoff
+            else:
+                raise
 
 def load_model():
     model_path = 'digit_model.h5'
     if not os.path.exists(model_path):
         print("Downloading model from Google Drive...")
-        file_id = '1_OJId1A-UxYT4laacotfHA9g5U5KWMXa'
-        download_file_from_google_drive(file_id, model_path)
-        print("Model downloaded.")
-    return tf.keras.models.load_model(model_path)
+        download_model('https://drive.google.com/uc?export=download&id=1_OJId1A-UxYT4laacotfHA9g5U5KWMXa', model_path)
+    try:
+        model = tf.keras.models.load_model(model_path)
+        print("Model loaded successfully!")
+        return model
+    except Exception as e:
+        print(f"Error loading model: {e}")
+        raise
 
 model = load_model()
 
