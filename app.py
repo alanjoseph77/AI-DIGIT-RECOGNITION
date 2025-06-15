@@ -3,9 +3,10 @@ import tensorflow as tf
 import numpy as np
 import cv2
 import os
+from io import BytesIO
 
 app = Flask(__name__)
-UPLOAD_FOLDER = 'static/uploads'
+UPLOAD_FOLDER = 'static/uploads'  # Kept for potential future use, but not used
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
     print(f"Created {UPLOAD_FOLDER}")
@@ -18,13 +19,16 @@ except Exception as e:
     print(f"Error loading model: {e}")
     model = None
 
-def predict_digit(image_path):
-    print(f"Attempting to load image from {image_path}")
-    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+def predict_digit(file_object):
+    print("Attempting to process image from file object")
+    # Read image from file object in memory
+    img_bytes = file_object.read()
+    img_array = np.frombuffer(img_bytes, np.uint8)
+    img = cv2.imdecode(img_array, cv2.IMREAD_GRAYSCALE)
     if img is None:
-        print(f"Failed to load image from {image_path}")
-        return "Error: Could not load image."
-    print("Image loaded, resizing to 28x28")
+        print("Failed to decode image")
+        return "Error: Could not decode image."
+    print("Image decoded, resizing to 28x28")
     img = cv2.resize(img, (28, 28))
     img = img / 255.0
     img = img.reshape(1, 28, 28, 1)
@@ -57,10 +61,8 @@ def predict():
     if '.' in file.filename and file.filename.rsplit('.', 1)[1].lower() not in allowed_extensions:
         return jsonify({'error': 'Invalid file type. Use .png, .jpg, or .jpeg'}), 400
     if file:
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-        print(f"Saving file to {file_path}")
-        file.save(file_path)
-        digit = predict_digit(file_path)
+        print(f"Processing file: {file.filename}")
+        digit = predict_digit(file)
         if isinstance(digit, str) and digit.startswith("Error"):
             return jsonify({'error': digit}), 500
         return jsonify({'digit': str(digit)})
