@@ -3,8 +3,7 @@ import tensorflow as tf
 import numpy as np
 import cv2
 import os
-import requests
-from time import sleep
+import gdown
 
 app = Flask(__name__)
 UPLOAD_FOLDER = 'static/uploads'
@@ -13,21 +12,8 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 def load_model():
     model_path = 'digit_model.h5'
     if not os.path.exists(model_path):
-        url = 'https://drive.google.com/uc?export=download&id=1_OJId1A-UxYT4laacotfHA9g5U5KWMXa'
-        session = requests.Session()
-        response = session.get(url, stream=True)
-        token = None
-        for key, value in response.cookies.items():
-            if 'download_warning' in value:
-                token = value
-                break
-        if token:
-            params = {'confirm': token}
-            response = session.get(url, params=params, stream=True)
-        with open(model_path, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=32768):
-                if chunk:
-                    f.write(chunk)
+        file_id = '1_OJId1A-UxYT4laacotfHA9g5U5KWMXa'
+        gdown.download(id=file_id, output=model_path, quiet=False)
     return tf.keras.models.load_model(model_path)
 
 model = load_model()
@@ -63,6 +49,5 @@ def predict():
 if __name__ == '__main__':
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
-    import os
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
